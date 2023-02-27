@@ -33,9 +33,9 @@ def check_values_for_add_form(request, pk, form_pk):
             if key_parts[-1] == 'description':
                 if len(add_item) == 0:
                     continue
-            # if len(add_item) < 1:
-            #     message = 'Inputs cannot be empty'
-            #     return {'message':{'error':message}}
+            if len(add_item) < 1:
+                message = 'Inputs cannot be empty'
+                return {'message':{'error':message}}
             if field_check_name not in form_keys:
                 message = 'Something went wrong'
                 return {'message':{'error':message}}
@@ -87,4 +87,34 @@ def check_values_for_add_form(request, pk, form_pk):
     # print("my_dict>>>>", my_dict)
     return my_dict
 
+
+
+def fill_form(request, pk, form_pk):
+    form = request.data
+    my_dict = {}
+    for keys, val in form_pk.values.items():
+        if keys not in my_dict:
+            my_dict.update({keys:[]})
+        ## check required keys and append to my_dict[keys]
+        if 'required' in val.keys():
+            my_dict[keys].append(True)
+    for key, add_item in form.items():
+        key_parts = key.split("_")
+        if key == 'email':
+            continue
+        elif key == 'fullname':
+            continue
+        field_name = "_".join(key_parts[:3])
+        if field_name not in my_dict:
+            if field_name == 'email' or field_name == 'fullname':
+                continue
+            message = 'Something went wrong'
+            return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
+        my_dict[field_name].append(add_item)
+    for i in my_dict.values():
+        if True in i:
+            if len(i) < 2:
+                message = 'Required inputs cannot be empty'
+                return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
+    return my_dict
 

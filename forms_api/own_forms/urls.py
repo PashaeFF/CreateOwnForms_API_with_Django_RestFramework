@@ -4,7 +4,7 @@ from . import views
 urlpatterns = [
     path('', views.index),
     path('<int:pk>', views.create_values_for_form),
-    # path('<int:pk>/view', views.get_form),
+    path('<int:pk>/view', views.get_form),
     # path('<int:pk>/list', views.get_the_list_of_filled_form),
     # path('<int:pk>/download', views.form_id_to_xlsx),
     # path('<int:pk>/delete_filled_form', views.delete_filled_form),

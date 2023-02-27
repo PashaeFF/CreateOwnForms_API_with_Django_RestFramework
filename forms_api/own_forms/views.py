@@ -3,7 +3,7 @@ from rest_framework import generics, status
 from .models import Form, FilledForms
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .utils.helper import check_values_for_add_form
+from .utils.helper import check_values_for_add_form, fill_form
 
 
 @api_view(('GET','POST'))
@@ -53,3 +53,46 @@ def create_values_for_form(request, pk=None):
     else:
         return Response({'error':'Form not found'}, status=status.HTTP_404_NOT_FOUND)
     
+@api_view(('GET','POST'))
+def get_form(request, pk=None):
+    form_pk = Form.objects.filter(id=pk).first()
+    images_path = f'/static/media/{pk}/'
+    if form_pk:
+        values = form_pk.values
+        if len(values) < 1:
+            message = 'The form is empty, fill in your information'
+            return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+        context = {
+            'title':form_pk.form_name,
+            'id':form_pk.id,
+            'url':form_pk.url,
+            'author':form_pk.fullname,
+            'images_path':images_path,
+            'data':values
+        }
+        #### filled form post request
+        if request.method == 'POST':
+            if 'email' in request.data.keys():
+                email = request.data['email']
+                if len(email) < 4 or "@" not in email:
+                    message = 'Wrong email'
+                    return Response({'error':message}, status=status.HTTP_406_NOT_ACCEPTABLE)
+            else:
+                message = 'Enter your email address'
+                return Response({'error':message}, status=status.HTTP_406_NOT_ACCEPTABLE)
+            if 'fullname' in request.data.keys():
+                fullname = request.data['fullname']
+                if len(fullname) < 1:
+                    message = 'Enter your name'
+                    return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+            else:
+                message = 'Enter your name'
+                return Response({'error':message}, status=status.HTTP_406_NOT_ACCEPTABLE)
+            FilledForms.objects.create(email=email, fullname=fullname, filled_form=fill_form(request, pk, form_pk), form_id_id=form_pk.id)
+            Form.objects.filter(id=form_pk.id).update(forms_count=form_pk.forms_count+1)
+            message = 'Form filled successfull'
+            return Response({'success':message}, status=status.HTTP_201_CREATED)
+        return Response(context, status=status.HTTP_200_OK)
+    else:
+        message = 'Form not found'
+        return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
