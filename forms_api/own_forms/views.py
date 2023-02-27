@@ -1,5 +1,4 @@
-from django.shortcuts import render
-from rest_framework import generics, status
+from rest_framework import status
 from .models import Form, FilledForms
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
@@ -52,7 +51,8 @@ def create_values_for_form(request, pk=None):
         return Response(context, status=status.HTTP_200_OK)
     else:
         return Response({'error':'Form not found'}, status=status.HTTP_404_NOT_FOUND)
-    
+
+
 @api_view(('GET','POST'))
 def get_form(request, pk=None):
     form_pk = Form.objects.filter(id=pk).first()
@@ -96,3 +96,55 @@ def get_form(request, pk=None):
     else:
         message = 'Form not found'
         return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+    
+
+@api_view()
+def get_the_list_of_filled_form(request, pk=None):
+    form_pk = FilledForms.objects.filter(form_id_id=pk).all()
+    get_form = Form.objects.filter(id=pk).first()
+    if form_pk:
+        context = {
+            'title':get_form.form_name,
+            'id':get_form.id,
+            'url':get_form.url,
+            'author':get_form.fullname,
+        }
+        filled_list = []
+        for item in form_pk:
+            filled_list.append({
+                "id":item.id,
+                "email":item.email,
+                "filled_form":item.filled_form,
+                "created_at":item.created_at.strftime('%Y-%m-%d %H:%M'),
+                })
+        return Response({"context":context, "filled_list":filled_list}, status=status.HTTP_200_OK)
+    else:
+        message = f'No form has been filled for the "{get_form.form_name}"'
+        return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+    
+
+@api_view()
+def get_filled_form(request, pk=None, wk=None):
+    images_path = f'/static/media/{pk}/'
+    form_pk = Form.objects.filter(id=pk).first()
+    if form_pk:
+        filled = FilledForms.objects.filter(id=wk).first()
+        if filled:
+            # filled_form_to_xlsx(request, pk, wk)
+            context = {
+            "title":form_pk.form_name,
+            "id":form_pk.id,
+            "url":form_pk.url,
+            "author":form_pk.fullname,
+            "data":form_pk.values,
+            "filled":filled.filled_form,
+            "images_path":images_path
+            }
+            if len(filled.filled_form) < 1:
+                message = 'Form is empty'
+                return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+            return Response(context, status=status.HTTP_204_NO_CONTENT)
+        message = 'Form not found'
+        return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+    message = 'Form not found'
+    return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
