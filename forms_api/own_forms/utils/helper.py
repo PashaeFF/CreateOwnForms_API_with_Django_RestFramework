@@ -110,7 +110,12 @@ def fill_form(request, pk, form_pk):
                 continue
             message = 'Something went wrong'
             return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
-        my_dict[field_name].append(add_item)
+        # print("add", add_item)
+        if isinstance(add_item, list):
+            for i in add_item:
+                my_dict[field_name].append(i)
+        else:
+            my_dict[field_name].append(add_item)
     for i in my_dict.values():
         if True in i:
             if len(i) < 2:

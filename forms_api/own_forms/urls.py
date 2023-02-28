@@ -1,15 +1,15 @@
 from django.urls import path
-from . import views
+from .views import FormsView
 
 urlpatterns = [
-    path('', views.index),
-    path('<int:pk>', views.create_values_for_form),
-    path('<int:pk>/view', views.get_form),
-    path('<int:pk>/list', views.get_the_list_of_filled_form),
-    # path('<int:pk>/download', views.form_id_to_xlsx),
-    # path('<int:pk>/delete_filled_form', views.delete_filled_form),
-    # path('<int:pk>/view_filled_form/<int:wk>', views.delete_filled_form),
-    # path('<int:pk>/delete', views.delete_form),
-    path('<int:pk>/filled_form/<int:wk>/view', views.get_filled_form),
-    # path('<int:pk>/filled_form/<int:wk>/download', views.filled_form_to_xlsx),
+    path('', FormsView.index),
+    path('<int:pk>', FormsView.create_values_for_form),
+    path('<int:pk>/view', FormsView.get_form),
+    path('<int:pk>/list/', FormsView.get_the_list_of_filled_form),
+    # path('<int:pk>/download', FormsView.form_id_to_xlsx),
+    # path('<int:pk>/delete_filled_form', FormsView.delete_filled_form),
+    # path('<int:pk>/view_filled_form/<int:wk>', FormsView.delete_filled_form),
+    # path('<int:pk>/delete', FormsView.delete_form),
+    path('<int:pk>/filled_form/<int:wk>/view', FormsView.get_filled_form),
+    # path('<int:pk>/filled_form/<int:wk>/download', FormsView.filled_form_to_xlsx),
 ]
