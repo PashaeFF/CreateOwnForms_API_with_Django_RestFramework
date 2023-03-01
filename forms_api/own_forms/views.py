@@ -1,9 +1,12 @@
-from rest_framework import status, generics
+from rest_framework import status, generics, viewsets, mixins
 from .models import Form, FilledForms
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
 from .utils.helper import check_values_for_add_form, fill_form
-
+from .serializers import FilledFormsSerializer
+from rest_framework.pagination import PageNumberPagination
+    
+    
 class FormsView(generics.GenericAPIView):
     @api_view(('GET','POST'))
     def index(request):
@@ -97,30 +100,58 @@ class FormsView(generics.GenericAPIView):
             message = 'Form not found'
             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
         
+    page_size = 5
 
     @api_view()
-    def get_the_list_of_filled_form(request, pk=None):
+    def get_the_list_of_filled_form(request, pk):
         form_pk = FilledForms.objects.filter(form_id_id=pk).all()
         get_form = Form.objects.filter(id=pk).first()
-        if form_pk:
-            context = {
-                'title':get_form.form_name,
-                'id':get_form.id,
-                'url':get_form.url,
-                'author':get_form.fullname,
-            }
-            filled_list = []
-            for item in form_pk:
-                filled_list.append({
-                    "id":item.id,
-                    "email":item.email,
-                    "filled_form":item.filled_form,
-                    "created_at":item.created_at.strftime('%Y-%m-%d %H:%M'),
-                    })
-            return Response({"context":context, "filled_list":filled_list}, status=status.HTTP_200_OK)
+        if get_form:
+            if form_pk:
+                context = {
+                    'title':get_form.form_name,
+                    'id':get_form.id,
+                    'url':get_form.url,
+                    'author':get_form.fullname,
+                }
+                paginator = PageNumberPagination()
+                paginator.page_size = FormsView.page_size
+                result_page = paginator.paginate_queryset(form_pk, request)
+                serializer = FilledFormsSerializer(result_page, many=True)
+                result = paginator.get_paginated_response(serializer.data)
+                return Response({"context":context, "data":serializer.data}, status=status.HTTP_200_OK)
+            else:
+                message = f'No form has been filled for the "{get_form.form_name}"'
+                return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
         else:
-            message = f'No form has been filled for the "{get_form.form_name}"'
+            message = 'Form not found'
             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+        
+
+    # @api_view()
+    # def get_the_list_of_filled_form(self, pk=None):
+    #     form_pk = FilledForms.objects.filter(form_id_id=pk).all()
+    #     get_form = Form.objects.filter(id=pk).first()
+    #     serializer = FilledFormsSerializer(form_pk, many=True)
+    #     if form_pk:
+    #         context = {
+    #             'title':get_form.form_name,
+    #             'id':get_form.id,
+    #             'url':get_form.url,
+    #             'author':get_form.fullname,
+    #         }
+    #         data = []
+    #         for item in form_pk:
+    #             data.append({
+    #                 "id":item.id,
+    #                 "email":item.email,
+    #                 "filled_form":item.filled_form,
+    #                 "created_at":item.created_at.strftime('%Y-%m-%d %H:%M'),
+    #                 })
+    #         return Response({"context":context, "filled_list": CustomPagination.get_paginated_response(self, data)}, status=status.HTTP_200_OK)
+    #     else:
+    #         message = f'No form has been filled for the "{get_form.form_name}"'
+    #         return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
         
 
     @api_view()

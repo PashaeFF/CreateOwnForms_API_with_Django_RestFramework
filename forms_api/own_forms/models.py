@@ -15,8 +15,8 @@ class Form(models.Model):
     class Meta:
         db_table = "own_forms"
 
-    # def __str__(self):
-    #     return f'Email: {self.email} \nURL: {self.url} \nFullname: {self.fullname} \nForm name: {self.form_name} \nForm values: {self.values}'
+    def __str__(self):
+        return f'Email: {self.email} \nURL: {self.url} \nFullname: {self.fullname} \nForm name: {self.form_name} \nForm values: {self.values}'
 
 
 class FilledForms(models.Model):
@@ -30,5 +30,5 @@ class FilledForms(models.Model):
     class Meta:
         db_table = "filled_forms"
 
-    # def __str__(self):
-    #     return f'Form id: {self.form_id} \nForm: {self.filled_form}'
+    def __str__(self):
+        return f'Form id: {self.form_id} \nForm: {self.filled_form}'
