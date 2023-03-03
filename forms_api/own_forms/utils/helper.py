@@ -2,6 +2,7 @@ from rest_framework import status
 from ..models import Form, FilledForms
 from rest_framework.response import Response
 from .image_check_and_upload import check_image_upload_errors, image_upload
+import xlsxwriter, os
 
 
 def check_values_for_add_form(request, pk, form_pk):
@@ -123,3 +124,107 @@ def fill_form(request, pk, form_pk):
                 return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
     return my_dict
 
+
+def filled_form_to_xlsx(request, pk=None, wk=None):
+    form = Form.objects.filter(id=pk).first()
+    form_pk = FilledForms.objects.filter(id=wk).first()
+    root = 'http://127.0.0.1:8000/'
+    images_path = f'/static/media/{pk}/'
+    xlsx_path = f'static/xlsx_files/filled_form/{pk}/'
+    if not os.path.exists(xlsx_path):
+        os.mkdir(xlsx_path)
+    if " " in form_pk.fullname:
+        file_name = f'{form_pk.fullname.replace(" ","_")}.xlsx'
+    else:
+        file_name = f'{form_pk.fullname}.xlsx'
+
+    workbook = xlsxwriter.Workbook(xlsx_path+file_name)
+    worksheet = workbook.add_worksheet()
+    cell_format = workbook.add_format({'bold': True, 'bg_color': 'blue', 'color':'white'})
+    full = workbook.add_format({'bold': True, 'bg_color': 'green', 'color':'white'})
+    null = workbook.add_format({'bold': True, 'bg_color': 'red', 'color':'white'})
+    worksheet.set_column(0, 1, 10)
+    worksheet.set_column(1, 1, 30)
+    worksheet.set_column(2, 1, 30)
+    worksheet.set_column(3, 1, 30)
+    worksheet.set_column(4, 1, 30)
+    worksheet.set_column(5, 1, 30)
+
+    worksheet.write('A1', 'Counter', cell_format)
+    worksheet.write('B1', 'Answer', cell_format)
+    worksheet.write('C1', 'Values', cell_format)
+    worksheet.write('D1', 'Button', cell_format)
+    worksheet.write('E1', 'Title/Question', cell_format)
+    worksheet.write('F1', 'Description', cell_format)
+    worksheet.write('G1', 'Image url', cell_format)
+    worksheet.write('H1', 'Uploaded Image', cell_format)
+    worksheet.write('I1', 'Youtube Url', cell_format)
+    worksheet.write('J1', 'Url', cell_format)
+    worksheet.write('K1', 'Required', cell_format)
+    
+    for nums, (form_key, form_value) in enumerate(form.values.items(), 2):
+        for filled_form_key, filled_form_value in form_pk.filled_form.items():
+            if form_key == filled_form_key:
+                ########## A line ##########
+                if 'counter' in form_value:
+                    worksheet.write(f'A{nums}', form_value['counter'])
+                ########## B line ##########
+                if filled_form_value:
+                    for answer in filled_form_value:
+                        print(type(answer),  answer)
+                        # if answer == True:
+                        #     continue
+                        # else:
+                        #     worksheet.write(f'B{nums}', answer, full)
+                else:
+                    worksheet.write(f'B{nums}', 'No answer was given', null)
+                ########## C line ##########
+                if 'values' in form_value:
+                    values_v = """"""
+                    for values in form_value['values']:
+                        values_v += values+'\n'
+                    worksheet.write(f'C{nums}', values_v)
+                else:
+                    worksheet.write(f'C{nums}', 'No value given', null)
+                ########## D line ##########
+                if 'button' in form_value:
+                    button_v = """"""
+                    for button in form_value['button']:
+                        button_v += button+'\n'
+                    worksheet.write(f'D{nums}', button_v)
+                else:
+                    worksheet.write(f'D{nums}', 'No value given', null)
+                ########## E line ##########
+                if 'title' in form_value:
+                    worksheet.write(f'E{nums}', form_value['title'])
+                ########## F line ##########
+                if 'description' in form_value:
+                    worksheet.write(f'F{nums}', form_value['description'])
+                ########## G line ##########
+                if 'image' in form_value:
+                    image_v = """"""
+                    for image in form_value['image']:
+                        image_v += image+'\n'
+                    worksheet.write(f'G{nums}', image_v)
+                ########## H line##########
+                if 'uploaded_image' in form_value:
+                    for image in form_value['uploaded']:
+                        worksheet.write(f'H{nums}', root+images_path+image)
+                ########## I line ##########
+                if 'youtube' in form_value:
+                    youtube_v = """"""
+                    for youtube in form_value['youtube']:
+                        youtube_v += youtube+'\n'
+                    worksheet.write(f'I{nums}', youtube_v)
+                ########## J line ##########
+                if 'url' in form_value:
+                    url_v = """"""
+                    for url in form_value['url']:
+                        url_v += url+'\n'
+                    worksheet.write(f'J{nums}', url_v)
+                ########## K line ##########
+                if 'required' in form_value:
+                    worksheet.write(f'K{nums}', 'True') 
+    workbook.close()
+    download = root+xlsx_path+file_name
+    return download

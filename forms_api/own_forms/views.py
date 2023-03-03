@@ -1,10 +1,11 @@
 from rest_framework import status, generics, viewsets, mixins
 from .models import Form, FilledForms
 from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from .utils.helper import check_values_for_add_form, fill_form
+from rest_framework.decorators import api_view, APIView
+from .utils.helper import check_values_for_add_form, fill_form, filled_form_to_xlsx
 from .serializers import FilledFormsSerializer
 from rest_framework.pagination import PageNumberPagination
+import os, shutil
     
     
 class FormsView(generics.GenericAPIView):
@@ -99,9 +100,9 @@ class FormsView(generics.GenericAPIView):
         else:
             message = 'Form not found'
             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
-        
-    page_size = 5
 
+
+    page_size = 5
     @api_view()
     def get_the_list_of_filled_form(request, pk):
         form_pk = FilledForms.objects.filter(form_id_id=pk).all()
@@ -161,7 +162,7 @@ class FormsView(generics.GenericAPIView):
         if form_pk:
             filled = FilledForms.objects.filter(id=wk).first()
             if filled:
-                # filled_form_to_xlsx(request, pk, wk)
+                filled_form_to_xlsx(request, pk, wk)
                 context = {
                 "title":form_pk.form_name,
                 "id":form_pk.id,
@@ -183,3 +184,52 @@ class FormsView(generics.GenericAPIView):
             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
         message = 'Form not found'
         return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+    
+    
+class DeleteFilledForm(APIView):
+    def delete(self, request, pk):
+        form_pk = FilledForms.objects.filter(id=pk).first()
+        if form_pk:
+            if " " in form_pk.fullname:
+                file_name = f'{form_pk.fullname.replace(" ","_")}.xlsx'
+            else:
+                file_name = f'{form_pk.fullname}.xlsx'
+            forms_count = Form.objects.filter(id=form_pk.form_id_id).first()
+            name = form_pk.fullname
+            xlsx_path = f'static/xlsx_files/filled_form/{forms_count.id}/'
+            delete_this_form = FilledForms.objects.filter(id=pk)
+            delete_this_form.delete()
+            Form.objects.filter(id=form_pk.form_id_id).update(forms_count=forms_count.forms_count-1)
+            try:
+                os.remove(xlsx_path+file_name)
+            except:
+                pass
+            message = f'The form filled by {name} has been deleted'
+            return Response({'success':message}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            message = 'Form not found'
+            return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
+        
+
+class DeleteForm(APIView):
+    def delete(self, request, pk=None):
+        form_pk = Form.objects.filter(id=pk).first()
+        if form_pk:
+            if " " in form_pk.form_name:
+                file_name = f'{form_pk.form_name.replace(" ","_")}.xlsx'
+            else:
+                file_name = f'{form_pk.form_name}.xlsx'
+            images_path = f'static/media/{pk}/'
+            xlsx_path = 'static/xlsx_files/form/'
+            if form_pk:
+                Form.objects.filter(id=pk).delete()
+                shutil.rmtree(images_path, ignore_errors=True)
+                try:
+                    os.remove(xlsx_path+file_name)
+                except:
+                    pass
+                message = f'The form with the {form_pk.url} has been deleted'
+                return Response({'success':message}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            message = 'Form not found'
+            return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
