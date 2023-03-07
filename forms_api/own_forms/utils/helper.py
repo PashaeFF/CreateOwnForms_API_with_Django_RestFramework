@@ -111,7 +111,6 @@ def fill_form(request, pk, form_pk):
                 continue
             message = 'Something went wrong'
             return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
-        # print("add", add_item)
         if isinstance(add_item, list):
             for i in add_item:
                 my_dict[field_name].append(i)
@@ -170,12 +169,10 @@ def filled_form_to_xlsx(request, pk=None, wk=None):
                     worksheet.write(f'A{nums}', form_value['counter'])
                 ########## B line ##########
                 if filled_form_value:
+                    answer_v = """"""
                     for answer in filled_form_value:
-                        print(type(answer),  answer)
-                        # if answer == True:
-                        #     continue
-                        # else:
-                        #     worksheet.write(f'B{nums}', answer, full)
+                        answer_v += answer+'\n'
+                    worksheet.write(f'B{nums}', answer_v, full)
                 else:
                     worksheet.write(f'B{nums}', 'No answer was given', null)
                 ########## C line ##########
