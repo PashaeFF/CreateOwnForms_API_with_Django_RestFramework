@@ -1,4 +1,4 @@
-from rest_framework import status, generics
+from rest_framework import status, generics, viewsets
 from .models import Form, FilledForms
 from rest_framework.response import Response
 from rest_framework.decorators import api_view, APIView
@@ -7,6 +7,7 @@ from .serializers import FilledFormsSerializer, FormSerializer, CreateValuesSeri
 from rest_framework.pagination import PageNumberPagination
 import os, shutil
 from drf_yasg.utils import swagger_auto_schema
+from django.core.paginator import Paginator
 
  
 class FormsAll(APIView):
@@ -21,7 +22,7 @@ class FormsAll(APIView):
     
 
 class CreateForm(APIView):
-    @swagger_auto_schema(operation_id="Create Form", request_body=FormSerializer, tags=['Forms'])
+    @swagger_auto_schema(operation_id="Create Form", request_body=FormSerializer, tags=['Create New Form'])
     def post(self, request):
         form = request.data
         check_url = Form.objects.filter(url=form['url']).first()
@@ -38,62 +39,8 @@ class CreateForm(APIView):
                             'Form name':form['form_name']
                         }}, status=status.HTTP_201_CREATED)
         
-#     page_size = 5
-#     @api_view()
-#     def get_the_list_of_filled_form(request, pk):
-#         form_pk = FilledForms.objects.filter(form_id_id=pk).all()
-#         get_form = Form.objects.filter(id=pk).first()
-#         if get_form:
-#             if form_pk:
-#                 context = {
-#                     'title':get_form.form_name,
-#                     'id':get_form.id,
-#                     'url':get_form.url,
-#                     'author':get_form.fullname,
-#                 }
-#                 paginator = PageNumberPagination()
-#                 paginator.page_size = FormsView.page_size
-#                 result_page = paginator.paginate_queryset(form_pk, request)
-#                 serializer = FilledFormsSerializer(result_page, many=True)
-#                 result = paginator.get_paginated_response(serializer.data)
-#                 return Response({"context":context, "data":serializer.data}, status=status.HTTP_200_OK)
-#             else:
-#                 message = f'No form has been filled for the "{get_form.form_name}"'
-#                 return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
-#         else:
-#             message = 'Form not found'
-#             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
 
-#     @api_view()
-#     def get_filled_form(request, pk=None, wk=None):
-#         images_path = f'/static/media/{pk}/'
-#         form_pk = Form.objects.filter(id=pk).first()
-#         if form_pk:
-#             filled = FilledForms.objects.filter(id=wk).first()
-#             if filled:
-#                 filled_form_to_xlsx(request, pk, wk)
-#                 context = {
-#                 "title":form_pk.form_name,
-#                 "id":form_pk.id,
-#                 "url":form_pk.url,
-#                 "author":form_pk.fullname,
-#                 "images_path":images_path,
-#                 "download_xlsx_file":filled_form_to_xlsx(request, pk, wk)
-#                 }
-#                 form = {}
-#                 for key, value in form_pk.values.items():
-#                     for key_filled, value_filled in filled.filled_form.items():
-#                         if key == key_filled:
-#                             value.update({"answer":value_filled})
-#                         form.update({key:value})
-#                 if len(filled.filled_form) < 1:
-#                     message = 'Form is empty'
-#                     return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
-#                 return Response({"context":context, "form":form} , status=status.HTTP_200_OK)
-#             message = 'Form not found'
-#             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
-#         message = 'Form not found'
-#         return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+
     
     # @swagger_auto_schema(operation_id="Post Form", tags=['Form'])
     # def post(self, request, pk=None):
@@ -123,7 +70,7 @@ class CreateForm(APIView):
 
 
 class ViewForm(APIView):
-    @swagger_auto_schema(operation_id="View Form", tags=['Form'])
+    @swagger_auto_schema(operation_id="View Form", tags=['Created Form'])
     def get(self, request, pk=None):
         form_pk = Form.objects.filter(id=pk).first()
         images_path = f'/static/media/{pk}/'
@@ -146,7 +93,7 @@ class ViewForm(APIView):
             return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
     
 
-    @swagger_auto_schema(operation_id="Create Form Values", tags=['Form'],
+    @swagger_auto_schema(operation_id="Create Form Values", tags=['Created Form'],
                          operation_description="""{
                             "question_field_1": {
                                         "question_field_1_1_title":"First Title",
@@ -186,7 +133,7 @@ class ViewForm(APIView):
             return Response({'error':'Form not found'}, status=status.HTTP_404_NOT_FOUND)
 
 
-    @swagger_auto_schema(operation_id="Delete Form", tags=['Form'])
+    @swagger_auto_schema(operation_id="Delete Form", tags=['Created Form'])
     def delete(self, request, pk=None):
         form_pk = Form.objects.filter(id=pk).first()
         if form_pk:
@@ -208,7 +155,60 @@ class ViewForm(APIView):
         else:
             message = 'Form not found'
             return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
+
+
+class GetListForms(APIView):
+    def get(self, request, pk):
+        form_pk = FilledForms.objects.filter(form_id_id=pk).all()
+        get_form = Form.objects.filter(id=pk).first()
+        if get_form:
+            if form_pk:
+                context = {
+                    'title':get_form.form_name,
+                    'id':get_form.id,
+                    'url':get_form.url,
+                    'author':get_form.fullname,
+                }
+                serializer_class = FilledFormsSerializer(form_pk, many=True)
+                return Response({"context":context, "data":serializer_class.data})
+            else:
+                message = f'No form has been filled for the "{get_form.form_name}"'
+                return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+        else:
+            message = 'Form not found'
+            return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
         
+
+class GetFilledForm(APIView):
+    def get(self, request, pk=None, wk=None):
+        images_path = f'/static/media/{pk}/'
+        form_pk = Form.objects.filter(id=pk).first()
+        if form_pk:
+            filled = FilledForms.objects.filter(id=wk).first()
+            if filled:
+                filled_form_to_xlsx(request, pk, wk)
+                context = {
+                "title":form_pk.form_name,
+                "id":form_pk.id,
+                "url":form_pk.url,
+                "author":form_pk.fullname,
+                "images_path":images_path,
+                "download_xlsx_file":filled_form_to_xlsx(request, pk, wk)
+                }
+                form = {}
+                for key, value in form_pk.values.items():
+                    for key_filled, value_filled in filled.filled_form.items():
+                        if key == key_filled:
+                            value.update({"answer":value_filled})
+                        form.update({key:value})
+                if len(filled.filled_form) < 1:
+                    message = 'Form is empty'
+                    return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+                return Response({"context":context, "form":form} , status=status.HTTP_200_OK)
+            message = 'Form not found'
+            return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
+        message = 'Form not found'
+        return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
 
 # class DeleteFilledForm(APIView):
 #     def delete(self, request, pk):
