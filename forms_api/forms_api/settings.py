@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'drf_yasg', #new
     'rest_framework', # new
     'own_forms', # new
+    'authentication', #new
 ]
 
 

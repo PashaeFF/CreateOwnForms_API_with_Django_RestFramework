@@ -1,6 +1,7 @@
 from rest_framework import serializers
 
 class FilledFormsSerializer(serializers.Serializer):
+    id = serializers.IntegerField()
     email = serializers.CharField()
     fullname = serializers.CharField()
     filled_form = serializers.JSONField()
@@ -14,4 +15,7 @@ class FormSerializer(serializers.Serializer):
     url = serializers.URLField()
 
 class CreateValuesSerializer(serializers.Serializer):
+    question_field_1 = serializers.DictField()
+
+class FillFormSerializer(serializers.Serializer):
     question_field_1 = serializers.DictField()
