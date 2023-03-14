@@ -11,6 +11,7 @@ import jwt
 from datetime import datetime, timedelta
 
 
+
 class RegisterAPIView(GenericAPIView):
     serializer_class = RegisterSerializer
 
