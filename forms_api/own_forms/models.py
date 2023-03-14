@@ -3,9 +3,8 @@ from django.utils.timezone import now
 
 
 class Form(models.Model):
-    email = models.CharField(max_length=200)
+    owner = models.IntegerField()
     url = models.CharField(max_length=500, unique=True)
-    fullname = models.CharField(max_length=250)
     form_name = models.CharField(max_length=250)
     values = models.JSONField(default=dict)
     forms_count = models.IntegerField(default=0)

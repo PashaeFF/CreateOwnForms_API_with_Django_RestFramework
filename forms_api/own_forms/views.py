@@ -2,6 +2,7 @@ from rest_framework import status
 from .models import Form, FilledForms
 from rest_framework.response import Response
 from rest_framework.decorators import APIView
+from .utils.check_auth import authorization
 from .utils.helper import check_values_for_add_form, fill_form, filled_form_to_xlsx
 from .serializers import FilledFormsSerializer, FormSerializer, CreateValuesSerializer, FillFormSerializer
 from rest_framework.pagination import PageNumberPagination
@@ -17,6 +18,7 @@ class FormsAll(APIView):
             'title':'Create your own form',
             'forms': forms.values()
         }
+        print(authorization(request))
         return Response({"context":context}, status=status.HTTP_200_OK)
  
 
