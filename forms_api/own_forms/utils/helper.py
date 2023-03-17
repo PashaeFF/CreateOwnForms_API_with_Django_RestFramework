@@ -1,7 +1,9 @@
 from rest_framework import status
 from ..models import Form, FilledForms
+from auth2.models import User
 from rest_framework.response import Response
 from .image_check_and_upload import check_image_upload_errors, image_upload
+from ..utils.check_auth import authorization
 import xlsxwriter, os
 
 
@@ -15,13 +17,9 @@ def check_values_for_add_form(request, pk, form_pk):
         message = 'Form is empty'
         return {'message':{'error':message}}
     for f_key, add in form.items():
-        # print("key: ",k, "Value: ",add)
         f_key_parts = f_key.split("_")
         for nums, (key, add_item )in enumerate(add.items(), 1):
-            # print(key,add_item)
-            # print(k)
             key_parts = key.split("_")
-            # print("parts>>>", key_parts)
             #### Index 0 of the dict is set to 'title'. A title must be included. Returns an error if 'header' is missing or has been modified
             if nums == 1:
                 if key_parts[-1] != 'title':
@@ -29,7 +27,6 @@ def check_values_for_add_form(request, pk, form_pk):
                     return {'message':{'error':message}}
             # #### We compare this (field_name) to a list of 'form_keys' so that other keys in the frontend are not located in the database
             field_name = "_".join(key_parts[:3])
-            # print("field_name", field_name)
             field_check_name = "_".join(f_key_parts[:2])
             if key_parts[-1] == 'description':
                 if len(add_item) == 0:
@@ -83,16 +80,13 @@ def check_values_for_add_form(request, pk, form_pk):
         for value_none in check_value.copy():
             if not check_value[value_none]:
                 check_value.pop(value_none)
-    # # for k,i in my_dict.items():
-    #     # print(f"key>> {k} | value>> {i}")
-    # print("my_dict>>>>", my_dict)
     return my_dict
-
 
 
 def fill_form(request, pk, form_pk):
     form = request.data
     my_dict = {}
+    
     for keys, val in form_pk.values.items():
         if keys not in my_dict:
             my_dict.update({keys:[]})
@@ -101,14 +95,8 @@ def fill_form(request, pk, form_pk):
             my_dict[keys].append(True)
     for key, add_item in form.items():
         key_parts = key.split("_")
-        if key == 'email':
-            continue
-        elif key == 'fullname':
-            continue
         field_name = "_".join(key_parts[:3])
         if field_name not in my_dict:
-            if field_name == 'email' or field_name == 'fullname':
-                continue
             message = 'Something went wrong'
             return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
         if isinstance(add_item, list):
@@ -121,21 +109,24 @@ def fill_form(request, pk, form_pk):
             if len(i) < 2:
                 message = 'Required inputs cannot be empty'
                 return Response({'error': message}, status=status.HTTP_406_NOT_ACCEPTABLE)
+    print("my dict>", my_dict)
     return my_dict
 
 
 def filled_form_to_xlsx(request, pk=None, wk=None):
     form = Form.objects.filter(id=pk).first()
     form_pk = FilledForms.objects.filter(id=wk).first()
+    user = User.objects.filter(id=form_pk.person_id_id).first()
+    print("name:", user.fullname)
     root = 'http://127.0.0.1:8000/'
     images_path = f'/static/media/{pk}/'
     xlsx_path = f'static/xlsx_files/filled_form/{pk}/'
     if not os.path.exists(xlsx_path):
         os.mkdir(xlsx_path)
-    if " " in form_pk.fullname:
-        file_name = f'{form_pk.fullname.replace(" ","_")}.xlsx'
+    if " " in user.fullname:
+        file_name = f'{user.id}_{user.fullname.replace(" ","_")}.xlsx'
     else:
-        file_name = f'{form_pk.fullname}.xlsx'
+        file_name = f'{user.id}_{user.fullname}.xlsx'
 
     workbook = xlsxwriter.Workbook(xlsx_path+file_name)
     worksheet = workbook.add_worksheet()
@@ -171,7 +162,8 @@ def filled_form_to_xlsx(request, pk=None, wk=None):
                 if filled_form_value:
                     answer_v = """"""
                     for answer in filled_form_value:
-                        answer_v += answer+'\n'
+                        if type(answer) != bool:
+                            answer_v += answer+'\n'
                     worksheet.write(f'B{nums}', answer_v, full)
                 else:
                     worksheet.write(f'B{nums}', 'No answer was given', null)

@@ -1,12 +1,12 @@
-from rest_framework import status, exceptions
+from rest_framework import status, exceptions, generics
 from rest_framework.generics import GenericAPIView
 from rest_framework.decorators import APIView
 from rest_framework.response import Response
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer
+from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, ChangePermissionSerializer
 from drf_yasg.utils import swagger_auto_schema
 from .models import User
 from django.conf import settings
-from django.contrib.auth import authenticate
+from own_forms.utils.check_auth import authorization
 import jwt
 from datetime import datetime, timedelta
 
@@ -37,15 +37,13 @@ class LoginAPIView(GenericAPIView):
         
         if user is None:
             raise exceptions.AuthenticationFailed("User not found")
-        # if not user.check_password(password):
-        #     raise exceptions.AuthenticationFailed("Incorrect password")
         if user:
             if password == user.password:
                 payload = {
                     'id':user.id,
                     'username':user.username,
                     'email':user.email,
-                    'exp':datetime.utcnow()+timedelta(hours=24)
+                    'exp':datetime.utcnow()+timedelta(minutes=60)
                 }
                 token = jwt.encode(payload, settings.SECRET_KEY, algorithm='HS256')
                 response = Response()
@@ -58,6 +56,7 @@ class LoginAPIView(GenericAPIView):
         
 
 class UserView(GenericAPIView):
+    @swagger_auto_schema(operation_id="View User", tags=['Authentication'])
     def get(self, request):
         token = request.COOKIES.get('jwt')
 
@@ -71,7 +70,9 @@ class UserView(GenericAPIView):
         serializer = UserSerializer(user)
         return Response(serializer.data)
     
+
 class LogoutView(GenericAPIView):
+    @swagger_auto_schema(operation_id="Logout", tags=['Authentication'])
     def post(self, request):
         response = Response()
         response.delete_cookie('jwt')
@@ -79,3 +80,24 @@ class LogoutView(GenericAPIView):
             'message':'Logged out'
         }
         return response
+
+
+class ChangePermissionView(generics.UpdateAPIView):
+    serializer_class = ChangePermissionSerializer
+
+    @swagger_auto_schema(operation_id="View user Permission", tags=['Permissions'])
+    def get(self, request, pk):
+        user = User.objects.filter(id=pk).first()
+        serializer = UserSerializer(user)
+        return Response({'company':serializer.data['company']}, status=status.HTTP_200_OK)
+
+
+    @swagger_auto_schema(operation_id="Change Permission", tags=['Permissions'])
+    def update(self, request, pk):
+        queryset = User.objects.filter(id=pk).first()
+        data_to_change = {'company': request.data.get("company")}
+
+        serializer = self.serializer_class(queryset, data=data_to_change, partial=True)
+        if serializer.is_valid():
+            self.perform_update(serializer)
+        return Response(serializer.data)
