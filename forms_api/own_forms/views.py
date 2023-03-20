@@ -57,18 +57,22 @@ class ViewForm(APIView):
             form_pk = Form.objects.filter(id=pk).first()
             images_path = f'/static/media/{pk}/'
             if form_pk:
-                values = form_pk.values
-                if len(values) < 1:
-                    message = 'The form is empty, fill in your information'
-                    return Response({'error':message}, status=status.HTTP_204_NO_CONTENT)
-                context = {
-                    'title':form_pk.form_name,
-                    'id':form_pk.id,
-                    'url':form_pk.url,
-                    'images_path':images_path,
-                    'data':values
-                }
-                return Response(context, status=status.HTTP_200_OK)
+                if authorization(request)['id'] == form_pk.owner_id_id:
+                    values = form_pk.values
+                    if len(values) < 1:
+                        message = 'The form is empty, fill in your information'
+                        return Response({'error':message}, status=status.HTTP_200_OK)
+                    context = {
+                        'title':form_pk.form_name,
+                        'id':form_pk.id,
+                        'owner':form_pk.owner_id_id,
+                        'url':form_pk.url,
+                        'images_path':images_path,
+                        'data':values
+                    }
+                    return Response(context, status=status.HTTP_200_OK)
+                else:
+                    return Response({'message':'Not access'})
             else:
                 message = 'Form not found'
                 return Response({'error':message}, status=status.HTTP_200_OK)
@@ -99,11 +103,14 @@ class ViewForm(APIView):
             form_pk = Form.objects.filter(id=pk).first()
             files_path = f'/static/'
             if form_pk:
-                if 'message' in check_values_for_add_form(request, pk, form_pk).keys():
-                    return Response(check_values_for_add_form(request, pk, form_pk)['message'], status=status.HTTP_405_METHOD_NOT_ALLOWED)
-                else:
-                    Form.objects.filter(id=pk).update(values=check_values_for_add_form(request, pk, form_pk))
+                if authorization(request)['id'] == form_pk.owner_id_id:
+                    if 'message' in check_values_for_add_form(request, pk, form_pk).keys():
+                        return Response(check_values_for_add_form(request, pk, form_pk)['message'], status=status.HTTP_405_METHOD_NOT_ALLOWED)
+                    else:
+                        Form.objects.filter(id=pk).update(values=check_values_for_add_form(request, pk, form_pk))
                     return Response({'success':'Form created'}, status=status.HTTP_201_CREATED)
+                else:
+                    return Response({'message':'Not access'})
             else:
                 return Response({'error':'Form not found'}, status=status.HTTP_404_NOT_FOUND)
 
@@ -113,21 +120,24 @@ class ViewForm(APIView):
         if authorization(request):
             form_pk = Form.objects.filter(id=pk).first()
             if form_pk:
-                if " " in form_pk.form_name:
-                    file_name = f'{form_pk.form_name.replace(" ","_")}.xlsx'
+                if authorization(request)['id'] == form_pk.owner_id_id:
+                    if " " in form_pk.form_name:
+                        file_name = f'{form_pk.form_name.replace(" ","_")}.xlsx'
+                    else:
+                        file_name = f'{form_pk.form_name}.xlsx'
+                    images_path = f'static/media/{pk}/'
+                    xlsx_path = 'static/xlsx_files/form/'
+                    if form_pk:
+                        Form.objects.filter(id=pk).delete()
+                        shutil.rmtree(images_path, ignore_errors=True)
+                        try:
+                            os.remove(xlsx_path+file_name)
+                        except:
+                            pass
+                        message = f'The form with the {form_pk.url} has been deleted'
+                        return Response({'success':message}, status=status.HTTP_200_OK)
                 else:
-                    file_name = f'{form_pk.form_name}.xlsx'
-                images_path = f'static/media/{pk}/'
-                xlsx_path = 'static/xlsx_files/form/'
-                if form_pk:
-                    Form.objects.filter(id=pk).delete()
-                    shutil.rmtree(images_path, ignore_errors=True)
-                    try:
-                        os.remove(xlsx_path+file_name)
-                    except:
-                        pass
-                    message = f'The form with the {form_pk.url} has been deleted'
-                    return Response({'success':message}, status=status.HTTP_200_OK)
+                    return Response({'message':'not access'})
             else:
                 message = 'Form not found'
                 return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
@@ -141,13 +151,17 @@ class GetListForms(APIView):
             get_form = Form.objects.filter(id=pk).first()
             if get_form:
                 if form_pk:
-                    context = {
-                        'title':get_form.form_name,
-                        'id':get_form.id,
-                        'url':get_form.url,
-                    }
-                    serializer_class = FilledFormsSerializer(form_pk, many=True)
-                    return Response({"context":context, "data":serializer_class.data})
+                    if authorization(request)['id'] == get_form.owner_id_id:
+                        context = {
+                            'title':get_form.form_name,
+                            'id':get_form.id,
+                            'owner_id':get_form.owner_id_id,
+                            'url':get_form.url,
+                        }
+                        serializer_class = FilledFormsSerializer(form_pk, many=True)
+                        return Response({"context":context, "data":serializer_class.data})
+                    else:
+                        return Response({'message':'Not access'})
                 else:
                     message = f'No form has been filled for the "{get_form.form_name}"'
                     return Response({'error':message}, status=status.HTTP_200_OK)
@@ -160,7 +174,6 @@ class FillForm(APIView):
     @swagger_auto_schema(operation_id="Fill Form Get", tags=['Form'])
     def get(self, request, pk=None):
         if authorization(request):
-
             form_pk = Form.objects.filter(id=pk).first()
             images_path = f'/static/media/{pk}/'
             if form_pk:
@@ -200,30 +213,34 @@ class GetFilledForm(APIView):
             images_path = f'/static/media/{pk}/'
             form_pk = Form.objects.filter(id=pk).first()
             if form_pk:
-                filled = FilledForms.objects.filter(id=wk).first()
-                if filled:
-                    filled_form_to_xlsx(request, pk, wk)
-                    context = {
-                        "title":form_pk.form_name,
-                        "id":form_pk.id,
-                        "url":form_pk.url,
-                        "images_path":images_path,
-                        # "download_xlsx_file":filled_form_to_xlsx(request, pk, wk)
-                        }
-                    form = {}
-                    for key, value in form_pk.values.items():
-                        for key_filled, value_filled in filled.filled_form.items():
-                            if key == key_filled:
-                                value.update({"answer":value_filled})
-                            form.update({key:value})
-                    if len(filled.filled_form) < 1:
-                        message = 'Form is empty'
-                        return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
-                    return Response({"context":context, "form":form} , status=status.HTTP_200_OK)
+                if authorization(request)['id'] == form_pk.owner_id_id:
+                    filled = FilledForms.objects.filter(id=wk).first()
+                    if filled:
+                        filled_form_to_xlsx(request, pk, wk)
+                        context = {
+                            "title":form_pk.form_name,
+                            "id":form_pk.id,
+                            "url":form_pk.url,
+                            "images_path":images_path,
+                            "download_xlsx_file":filled_form_to_xlsx(request, pk, wk)
+                            }
+                        form = {}
+                        for key, value in form_pk.values.items():
+                            for key_filled, value_filled in filled.filled_form.items():
+                                if key == key_filled:
+                                    value.update({"answer":value_filled})
+                                form.update({key:value})
+                        if len(filled.filled_form) < 1:
+                            message = 'Form is empty'
+                            return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
+                        return Response({"context":context, "form":form} , status=status.HTTP_200_OK)
+                    message = 'Form not found'
+                    return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
+                else:
+                    return Response({'message':'Not access'})
+            else:
                 message = 'Form not found'
                 return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
-            message = 'Form not found'
-            return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)
     
 
 class DeleteFilledForm(APIView):
@@ -232,23 +249,28 @@ class DeleteFilledForm(APIView):
         if authorization(request):
             form_pk = FilledForms.objects.filter(id=wk).first()
             if form_pk:
-                user = User.objects.filter(id=form_pk.person_id_id).first()
-                if " " in user.fullname:
-                    file_name = f'{user.fullname.replace(" ","_")}.xlsx'
+                check_owner = Form.objects.filter(id=form_pk.form_id_id).first()
+                if authorization(request)['id'] == check_owner.owner_id_id:
+                    user = User.objects.filter(id=form_pk.person_id_id).first()
+                    if " " in user.fullname:
+                        file_name = f'{user.fullname.replace(" ","_")}.xlsx'
+                    else:
+                        file_name = f'{user.fullname}.xlsx'
+                    forms_count = Form.objects.filter(id=form_pk.form_id_id).first()
+                    name = user.fullname
+                    xlsx_path = f'static/xlsx_files/filled_form/{forms_count.id}/'
+                    delete_this_form = FilledForms.objects.filter(id=wk)
+                    delete_this_form.delete()
+                    Form.objects.filter(id=form_pk.form_id_id).update(forms_count=forms_count.forms_count-1)
+                    try:
+                        os.remove(xlsx_path+file_name)
+                    except:
+                        pass
+                    message = f'The form filled by {name} has been deleted'
+                    return Response({'success':message}, status=status.HTTP_202_ACCEPTED)
                 else:
-                    file_name = f'{user.fullname}.xlsx'
-                forms_count = Form.objects.filter(id=form_pk.form_id_id).first()
-                name = user.fullname
-                xlsx_path = f'static/xlsx_files/filled_form/{forms_count.id}/'
-                delete_this_form = FilledForms.objects.filter(id=wk)
-                delete_this_form.delete()
-                Form.objects.filter(id=form_pk.form_id_id).update(forms_count=forms_count.forms_count-1)
-                try:
-                    os.remove(xlsx_path+file_name)
-                except:
-                    pass
-                message = f'The form filled by {name} has been deleted'
-                return Response({'success':message}, status=status.HTTP_202_ACCEPTED)
+                    return Response({'message':'Not access'})
             else:
                 message = 'Form not found'
                 return Response({'error':message}, status=status.HTTP_404_NOT_FOUND)  
+            

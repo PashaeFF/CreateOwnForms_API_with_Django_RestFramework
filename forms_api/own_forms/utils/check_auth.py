@@ -9,3 +9,4 @@ def authorization(request):
         return payload
     except:
         raise exceptions.AuthenticationFailed("Unauthenticated...")
+    
